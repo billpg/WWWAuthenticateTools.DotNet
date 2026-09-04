@@ -2,6 +2,34 @@
 
 Parser and Builder classes for dealing with the WWW-Authenticate HTTP header.
 
+## 🤔 Why This Exists
+
+The `WWW-Authenticate` grammar is more subtle than it looks. A single header
+value can carry multiple challenges, comma-separated — but the auth-params
+*within* a challenge are also comma-separated, so telling "another param for
+this challenge" from "a new challenge starts here" requires a two-token
+lookahead, not a simple `Split(',')`. On top of that, `WWW-Authenticate` is
+one of the header fields RFC 9110/7230 explicitly says can't always be
+safely combined into one line by joining multiple header field instances
+with commas — so a correct parser has to accept a collection of raw header
+values, not a single pre-joined string. It's easy to write something that
+handles the common case and quietly breaks on real-world multi-challenge or
+multi-instance headers, which is how this problem ends up solved badly,
+piecemeal, in thousands of codebases instead of correctly, once.
+
+Existing libraries were surveyed and found wanting:
+- Python's `www-authenticate` (PyPI): parses to an `OrderedDict`, has no
+  generator, uses fragile comma-splitting, and has been unmaintained since
+  ~2014.
+- npm's `www-authenticate`: explicitly documents that it does not support
+  headers with more than one challenge.
+- .NET's built-in `AuthenticationHeaderValue`: models a single scheme plus
+  one opaque parameter string; it doesn't decompose multi-challenge headers
+  at all.
+
+None of them combine correct multi-challenge parsing, a generator, and a
+design that ports cleanly across languages.
+
 This is the C# port of a planned cross-language library (C#/Python/TypeScript)
 for parsing and generating `WWW-Authenticate`, `Proxy-Authenticate`,
 `Authorization`, and `Proxy-Authorization` header values, per RFC 9110
