@@ -107,17 +107,15 @@ The documented codes live in `AuthHeaderErrorCodes`: `no_current_scheme`,
 ## 🚧 Status
 
 Implemented: the data model, immutable fluent builder, exception taxonomy,
-generator, a **strict-mode** parser for RFC-conformant input, and the
-`test-vectors` submodule wired into
+generator, a **strict-mode** parser for RFC-conformant input, one
+lenient-mode deviation (control characters in quoted-string values — see
+Design Notes below), and the `test-vectors` submodule wired into
 [TestVectorTests.cs](billpg.WWWAuthenticateToolsTests/TestVectorTests.cs)
-(currently `conformant` + `invalid` category, parse-direction vectors only).
+(`conformant`, `lenient`, and `invalid` category, parse-direction vectors).
 
 Not yet implemented:
-- Most of lenient-mode parsing (the `strict: false` documented deviations
-  for real-world-but-spec-violating input) — still behaves identically to
-  strict mode, with one exception so far (see Design Notes below).
-  `lenient` category vectors aren't seeded in the submodule yet for the
-  same reason.
+- The rest of lenient-mode parsing — every other documented deviation
+  still behaves identically to strict mode.
 - `direction: build` vectors (builder call sequences) from the shared suite.
 - Python and TypeScript ports.
 
