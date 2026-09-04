@@ -22,8 +22,13 @@ public static class ParseHeader
     /// <param name="strict">
     /// When true, only RFC-conformant input is accepted. When false (default),
     /// a documented set of spec-violating-but-real-world inputs is also
-    /// accepted. Lenient deviations are not yet implemented in this slice, so
-    /// both modes currently behave identically (strict grammar only).
+    /// accepted. Most lenient deviations aren't implemented yet in this slice,
+    /// so both modes still behave identically for those -- the one exception
+    /// is a control character (other than HTAB) inside a quoted-string value:
+    /// strict mode rejects it (invalid_auth_param), lenient mode substitutes a
+    /// space rather than passing it through, since a parsed value later
+    /// re-emitted as a raw header could otherwise smuggle a CR/LF into the
+    /// output header stream.
     /// </param>
     public static AuthHeaders Parse(IEnumerable<string> headerLines, bool strict = false)
     {
@@ -34,13 +39,13 @@ public static class ParseHeader
         int lineIndex = 0;
         foreach (var line in headerLines)
         {
-            ParseLine(line ?? string.Empty, lineIndex, challenges);
+            ParseLine(line ?? string.Empty, lineIndex, challenges, strict);
             lineIndex++;
         }
         return new AuthHeaders(challenges.ToImmutable());
     }
 
-    private static void ParseLine(string line, int lineIndex, ImmutableArray<Challenge>.Builder output)
+    private static void ParseLine(string line, int lineIndex, ImmutableArray<Challenge>.Builder output, bool strict)
     {
         Challenge? current = null;
         foreach (var (segmentStart, segmentLength) in SplitTopLevelCommaSegments(line, lineIndex))
@@ -65,7 +70,7 @@ public static class ParseHeader
              * "Digest realm=..." vs "Bearer abc123=="). */
             if (current is not null && SegmentContinuesChallenge(segment, out int eq))
             {
-                var (name, value) = ParseNameValue(segment, eq, lineIndex, basePosition);
+                var (name, value) = ParseNameValue(segment, eq, lineIndex, basePosition, strict);
                 if (current.HasParamNamed(name))
                     throw Err(AuthHeaderErrorCodes.DuplicateParam,
                         $"Duplicate param '{name}' on scheme '{current.Scheme}'.", lineIndex, basePosition);
@@ -76,14 +81,14 @@ public static class ParseHeader
             if (current is not null)
                 output.Add(current);
 
-            current = ParseChallengeHead(segment, lineIndex, basePosition);
+            current = ParseChallengeHead(segment, lineIndex, basePosition, strict);
         }
 
         if (current is not null)
             output.Add(current);
     }
 
-    private static Challenge ParseChallengeHead(string segment, int lineIndex, int basePosition)
+    private static Challenge ParseChallengeHead(string segment, int lineIndex, int basePosition, bool strict)
     {
         int spaceIndex = IndexOfOws(segment);
         string schemeWord = spaceIndex < 0 ? segment : segment.Substring(0, spaceIndex);
@@ -100,7 +105,7 @@ public static class ParseHeader
         int remainderBasePosition = basePosition + (segment.Length - remainder.Length);
         if (LooksLikeAuthParam(remainder, out int remEq))
         {
-            var (name, value) = ParseNameValue(remainder, remEq, lineIndex, remainderBasePosition);
+            var (name, value) = ParseNameValue(remainder, remEq, lineIndex, remainderBasePosition, strict);
             return challenge.WithParamCore(name, value);
         }
 
@@ -145,7 +150,7 @@ public static class ParseHeader
         return IndexOfOws(namePart) < 0;
     }
 
-    private static (string Name, string Value) ParseNameValue(string segment, int eqIndex, int lineIndex, int basePosition)
+    private static (string Name, string Value) ParseNameValue(string segment, int eqIndex, int lineIndex, int basePosition, bool strict)
     {
         string namePart = segment.Substring(0, eqIndex).TrimEnd(' ', '\t');
         if (!StringTools.IsValidRFC7230Token(namePart))
@@ -158,7 +163,7 @@ public static class ParseHeader
         string value;
         if (valuePart.StartsWith("\"", StringComparison.Ordinal))
         {
-            value = ParseQuotedString(valuePart, lineIndex, valueBasePosition, out int consumed);
+            value = ParseQuotedString(valuePart, lineIndex, valueBasePosition, strict, out int consumed);
             string rest = valuePart.Substring(consumed).Trim(' ', '\t');
             if (rest.Length > 0)
                 throw Err(AuthHeaderErrorCodes.InvalidAuthParam,
@@ -175,7 +180,7 @@ public static class ParseHeader
         return (namePart, value);
     }
 
-    private static string ParseQuotedString(string text, int lineIndex, int basePosition, out int consumed)
+    private static string ParseQuotedString(string text, int lineIndex, int basePosition, bool strict, out int consumed)
     {
         var result = new StringBuilder();
         bool afterBackslash = false;
@@ -184,7 +189,7 @@ public static class ParseHeader
             char c = text[i];
             if (afterBackslash)
             {
-                result.Append(c);
+                AppendQuotedChar(result, c, strict, lineIndex, basePosition + i);
                 afterBackslash = false;
             }
             else if (c == '\\')
@@ -198,11 +203,38 @@ public static class ParseHeader
             }
             else
             {
-                result.Append(c);
+                AppendQuotedChar(result, c, strict, lineIndex, basePosition + i);
             }
         }
         throw Err(AuthHeaderErrorCodes.UnterminatedQuotedString, "Unterminated quoted string.", lineIndex, basePosition);
     }
+
+    /// <summary>
+    /// Appends one quoted-string content character, per RFC 9110 section 5.6.4's
+    /// qdtext/quoted-pair grammar: control characters other than HTAB are never
+    /// valid (raw or backslash-escaped), though obs-text (bytes 0x80-0xFF, for
+    /// legacy non-UTF-8-aware text) is fine. Strict mode rejects a control
+    /// character outright; lenient mode substitutes a space rather than passing
+    /// it through -- a parsed value later re-emitted as a raw header could
+    /// otherwise smuggle a CR/LF (or other control character) into the output
+    /// header stream.
+    /// </summary>
+    private static void AppendQuotedChar(StringBuilder result, char c, bool strict, int lineIndex, int position)
+    {
+        if (IsControlChar(c))
+        {
+            if (strict)
+                throw Err(AuthHeaderErrorCodes.InvalidAuthParam,
+                    $"Control character (0x{(int)c:X2}) is not allowed inside a quoted string.", lineIndex, position);
+            result.Append(' ');
+        }
+        else
+        {
+            result.Append(c);
+        }
+    }
+
+    private static bool IsControlChar(char c) => (c < 0x20 && c != '\t') || c == 0x7F;
 
     private static List<(int Start, int Length)> SplitTopLevelCommaSegments(string line, int lineIndex)
     {

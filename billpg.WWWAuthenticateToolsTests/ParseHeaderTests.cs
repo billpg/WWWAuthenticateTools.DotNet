@@ -125,4 +125,44 @@ public sealed class ParseHeaderTests
             () => ParseHeader.Parse(["realm=Rutabaga"], strict: true));
         Assert.AreEqual(AuthHeaderErrorCodes.InvalidAuthParam, ex.Code);
     }
+
+    [TestMethod]
+    public void ControlCharacterInQuotedString_Strict_ThrowsInvalidAuthParam()
+    {
+        var ex = Assert.ThrowsExactly<AuthHeaderParseException>(
+            () => ParseHeader.Parse(["Digest realm=\"Ruta\rbaga\""], strict: true));
+        Assert.AreEqual(AuthHeaderErrorCodes.InvalidAuthParam, ex.Code);
+    }
+
+    [TestMethod]
+    public void EscapedControlCharacterInQuotedString_Strict_ThrowsInvalidAuthParam()
+    {
+        var ex = Assert.ThrowsExactly<AuthHeaderParseException>(
+            () => ParseHeader.Parse(["Digest realm=\"Ruta\\\rbaga\""], strict: true));
+        Assert.AreEqual(AuthHeaderErrorCodes.InvalidAuthParam, ex.Code);
+    }
+
+    [TestMethod]
+    public void ControlCharacterInQuotedString_Lenient_IsReplacedWithSpace()
+    {
+        var auth = ParseHeader.Parse(["Digest realm=\"Ruta\rbaga\""], strict: false);
+        Assert.AreEqual("Ruta baga", auth.Challenges[0].Params[0].Value);
+    }
+
+    [TestMethod]
+    public void HeaderInjectionAttemptInQuotedString_Lenient_CannotSmuggleAHeaderLine()
+    {
+        var auth = ParseHeader.Parse(["Digest realm=\"Rutabaga\r\nInjected: header\""], strict: false);
+        var value = auth.Challenges[0].Params[0].Value;
+        Assert.DoesNotContain("\r", value);
+        Assert.DoesNotContain("\n", value);
+    }
+
+    [TestMethod]
+    public void HorizontalTabBetweenItems_Strict_IsAccepted()
+    {
+        var auth = ParseHeader.Parse(["Digest\trealm=Rutabaga,\tqop=auth"], strict: true);
+        Assert.AreEqual("realm", auth.Challenges[0].Params[0].Key);
+        Assert.AreEqual("qop", auth.Challenges[0].Params[1].Key);
+    }
 }

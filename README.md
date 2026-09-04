@@ -113,10 +113,11 @@ generator, a **strict-mode** parser for RFC-conformant input, and the
 (currently `conformant` + `invalid` category, parse-direction vectors only).
 
 Not yet implemented:
-- Lenient-mode parsing (the `strict: false` documented deviations for
-  real-world-but-spec-violating input) — currently behaves identically to
-  strict mode. `lenient` category vectors aren't seeded in the submodule
-  yet for the same reason.
+- Most of lenient-mode parsing (the `strict: false` documented deviations
+  for real-world-but-spec-violating input) — still behaves identically to
+  strict mode, with one exception so far (see Design Notes below).
+  `lenient` category vectors aren't seeded in the submodule yet for the
+  same reason.
 - `direction: build` vectors (builder call sequences) from the shared suite.
 - Python and TypeScript ports.
 
@@ -137,3 +138,9 @@ Not yet implemented:
   `token BWS "=" BWS value`, so anything that isn't genuinely shaped that
   way (including a token68's own trailing `==` padding, which isn't a real
   `name=value` split) is treated as a new challenge or a token68 instead.
+- A control character (other than HTAB) inside a quoted-string value isn't
+  valid per RFC 9110 §5.6.4's `qdtext`/`quoted-pair` grammar, raw or
+  backslash-escaped. `strict: true` rejects it (`invalid_auth_param`);
+  `strict: false` substitutes a space rather than passing it through —
+  otherwise a value containing a raw CR/LF, round-tripped through
+  `Generate`, could smuggle an extra header into the output stream.
