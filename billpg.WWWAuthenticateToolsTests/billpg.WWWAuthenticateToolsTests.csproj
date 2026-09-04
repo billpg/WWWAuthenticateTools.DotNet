@@ -19,4 +19,8 @@
     <ProjectReference Include="..\billpg.WWWAuthenticateTools\billpg.WWWAuthenticateTools.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\test-vectors\test-vectors.json" Link="test-vectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

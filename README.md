@@ -16,10 +16,15 @@ dependency on any HTTP framework.
   convention, test assemblies are named `billpg.(project)Tests`.
 - `billpg.WWWAuthenticateTools/billpg.WWWAuthenticateTools.slnx` — the
   solution file, referencing both projects.
+- `test-vectors/` — git submodule pointing at
+  [www-authenticate-test-vectors](https://github.com/billpg/www-authenticate-test-vectors),
+  the shared cross-language test vector set. Pinned to a tag, not tracking
+  its `main` branch.
 
 ## 🚀 Getting Started
 
 ```bash
+git submodule update --init --recursive   # first time after cloning
 dotnet build billpg.WWWAuthenticateTools/billpg.WWWAuthenticateTools.slnx
 dotnet test billpg.WWWAuthenticateTools/billpg.WWWAuthenticateTools.slnx
 ```
@@ -74,13 +79,17 @@ The documented codes live in `AuthHeaderErrorCodes`: `no_current_scheme`,
 ## 🚧 Status
 
 Implemented: the data model, immutable fluent builder, exception taxonomy,
-generator, and a **strict-mode** parser for RFC-conformant input.
+generator, a **strict-mode** parser for RFC-conformant input, and the
+`test-vectors` submodule wired into
+[TestVectorTests.cs](billpg.WWWAuthenticateToolsTests/TestVectorTests.cs)
+(currently `conformant` + `invalid` category, parse-direction vectors only).
 
 Not yet implemented:
 - Lenient-mode parsing (the `strict: false` documented deviations for
   real-world-but-spec-violating input) — currently behaves identically to
-  strict mode.
-- The shared `auth-header-test-vectors` submodule repo.
+  strict mode. `lenient` category vectors aren't seeded in the submodule
+  yet for the same reason.
+- `direction: build` vectors (builder call sequences) from the shared suite.
 - Python and TypeScript ports.
 
 ## 🎯 Design Notes
