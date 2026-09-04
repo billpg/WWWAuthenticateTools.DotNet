@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>billpg.WWWAuthenticateTools</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>William Godfrey</Authors>
+    <Company>billpg industries</Company>
+    <Copyright>Copyright (c) 2026 William Godfrey</Copyright>
+    <Description>Parser and builder classes for the WWW-Authenticate HTTP header family (WWW-Authenticate, Proxy-Authenticate, Authorization, Proxy-Authorization), per RFC 9110 sections 11.6.1 and 11.3. Works purely at the string level, with no dependency on any HTTP framework.</Description>
+    <PackageTags>http;authentication;www-authenticate;digest;basic-auth;rfc9110</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/billpg/WWWAuthenticateTools.DotNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/billpg/WWWAuthenticateTools.DotNet</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
