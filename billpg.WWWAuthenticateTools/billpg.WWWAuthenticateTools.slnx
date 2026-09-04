@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../billpg.WWWAuthenticateToolsTests/billpg.WWWAuthenticateToolsTests.csproj" />
+  <Project Path="billpg.WWWAuthenticateTools.csproj" />
+</Solution>
